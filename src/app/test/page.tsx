@@ -1,9 +1,9 @@
 import { createStorefrontApiClient } from '@shopify/storefront-api-client';
 
 const client = createStorefrontApiClient({
-  storeDomain: process.env.PUBLIC_STORE_DOMAIN!,
+  storeDomain: process.env.SHOPIFY_STOREFRONT_DOMAIN!,
   apiVersion: '2026-01',
-  publicAccessToken: process.env.PUBLIC_STOREFRONT_API_TOKEN!,
+  publicAccessToken: process.env.SHOPIFY_STOREFRONT_API_TOKEN!,
 });
 
 export default async function TestPage() {
