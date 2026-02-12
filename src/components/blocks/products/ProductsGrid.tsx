@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { getProducts } from '@/lib/shopify/products';
+import Link from 'next/link'; // 1. Import Link
 
 interface Product {
     id: string;
@@ -21,34 +22,46 @@ export default function ProductsGrid() {
     const observerTarget = useRef<HTMLDivElement>(null);
 
     const loadProducts = useCallback(async () => {
-        if (isLoading || !hasMore) return;
+    if (isLoading || !hasMore) return;
 
-        setIsLoading(true);
-        try {
-            const result = await getProducts(cursorRef.current);
-            const edges = result?.data?.products?.edges || [];
-            const pageInfo = result?.data?.products?.pageInfo || {};
+    setIsLoading(true);
+    try {
+        const result = await getProducts(cursorRef.current);
+        const edges = result?.data?.products?.edges || [];
+        const pageInfo = result?.data?.products?.pageInfo || {};
 
-            if (edges.length === 0) {
-                setHasMore(false);
-                return;
-            }
-
-            setProducts((prev) => [...prev, ...edges.map((edge: any) => edge.node)]);
-            cursorRef.current = pageInfo.endCursor;
-            setHasMore(pageInfo.hasNextPage);
-        } catch (err) {
-            console.error("Novenarii Fetch Error:", err);
-            setHasMore(false); // Stop the loop on error
-        } finally {
-            setIsLoading(false);
+        if (edges.length === 0) {
+            setHasMore(false);
+            return;
         }
-    }, [isLoading, hasMore]); // Dependencies for the callback
+
+        // Senior Move: Ensure uniqueness to prevent key errors
+        setProducts((prev) => {
+            const existingIds = new Set(prev.map(p => p.id));
+            const uniqueNodes = edges
+                .map((edge: any) => edge.node)
+                .filter((node: any) => !existingIds.has(node.id));
+            
+            return [...prev, ...uniqueNodes];
+        });
+
+        cursorRef.current = pageInfo.endCursor;
+        setHasMore(pageInfo.hasNextPage);
+    } catch (err) {
+        console.error("Novenarii Fetch Error:", err);
+        setHasMore(false);
+    } finally {
+        setIsLoading(false);
+    }
+}, [isLoading, hasMore]);
 
     // 1. Initial Load
-    useEffect(() => {
+   useEffect(() => {
+    // Only fetch if we have no products yet to prevent double-firing on mount
+    if (products.length === 0) {
         loadProducts();
-    }, []);
+    }
+}, [loadProducts, products.length]);
 
     // 2. Intersection Observer Logic
     useEffect(() => {
@@ -78,7 +91,11 @@ export default function ProductsGrid() {
         <div className="w-full">
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 p-8">
                 {products.map((product) => (
-                    <div key={product.id} className="group flex flex-col cursor-pointer">
+                    <Link 
+                        key={product.id} 
+                        href={`/product/${product.handle}`}
+                        className="group flex flex-col cursor-pointer"
+                    >
                         <div className="aspect-[3/4] overflow-hidden bg-gray-50 mb-4">
                             {product.featuredImage && (
                                 <img
@@ -88,11 +105,13 @@ export default function ProductsGrid() {
                                 />
                             )}
                         </div>
-                        <h3 className="text-[11px] uppercase tracking-[0.2em] font-medium">{product.title}</h3>
+                        <h3 className="text-[11px] uppercase tracking-[0.2em] font-medium">
+                            {product.title}
+                        </h3>
                         <p className="text-gray-500 text-xs mt-1 pb-2">
                             ${parseFloat(product.priceRange.minVariantPrice.amount).toFixed(0)}
                         </p>
-                    </div>
+                    </Link>
                 ))}
             </div>
 
