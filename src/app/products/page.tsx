@@ -33,7 +33,7 @@ export default async function ProductsPage() {
                   {node.title}
                 </h2>
                 <p className="text-[10px] uppercase text-gray-400 mt-1 tracking-tighter">
-                  {node.handle}
+                  {node.productType}
                 </p>
               </div>
               <p className="text-sm font-light">

@@ -10,6 +10,7 @@ query GetProducts($cursor: String) {
         id
         title
         handle
+        productType
         featuredImage {
           url
         }
