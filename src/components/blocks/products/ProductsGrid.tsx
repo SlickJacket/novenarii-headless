@@ -2,7 +2,9 @@
 
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { getProducts } from '@/lib/shopify/products';
-import Link from 'next/link'; // 1. Import Link
+import { getCollectionProducts } from '@/lib/shopify/collections';
+import Link from 'next/link';
+import ProductSkeleton from '@/components/ui/ProductSkeleton';
 
 interface Product {
     id: string;
@@ -12,62 +14,84 @@ interface Product {
     featuredImage?: { url: string; altText: string };
 }
 
-export default function ProductsGrid() {
+interface ProductsGridProps {
+    collectionHandle?: string; // Optional: if passed, we filter by collection
+}
+
+export default function ProductsGrid({ collectionHandle }: ProductsGridProps) {
     const [products, setProducts] = useState<Product[]>([]);
     const [isLoading, setIsLoading] = useState(false);
     const [hasMore, setHasMore] = useState(true);
     
-    // We use Refs for values that need to persist without triggering re-renders
     const cursorRef = useRef<string | undefined>(undefined);
     const observerTarget = useRef<HTMLDivElement>(null);
 
     const loadProducts = useCallback(async () => {
-    if (isLoading || !hasMore) return;
+        if (isLoading || !hasMore) return;
 
-    setIsLoading(true);
-    try {
-        const result = await getProducts(cursorRef.current);
-        const edges = result?.data?.products?.edges || [];
-        const pageInfo = result?.data?.products?.pageInfo || {};
+        setIsLoading(true);
+        try {
+            let result;
 
-        if (edges.length === 0) {
+            // Senior Switch: Determine which fetcher to use
+            if (collectionHandle) {
+                const collectionData = await getCollectionProducts(collectionHandle, cursorRef.current);
+                // Standardize the shape so the rest of the function works
+                result = { 
+                    data: { 
+                        products: collectionData?.products 
+                    } 
+                };
+            } else {
+                result = await getProducts(cursorRef.current);
+            }
+
+            const productsData = result?.data?.products;
+            const edges = productsData?.edges || [];
+            const pageInfo = productsData?.pageInfo;
+
+            if (edges.length === 0) {
+                setHasMore(false);
+                return;
+            }
+
+            setProducts((prev) => {
+                const existingIds = new Set(prev.map(p => p.id));
+                const uniqueNodes = edges
+                    .map((edge: any) => edge.node)
+                    .filter((node: any) => !existingIds.has(node.id));
+                
+                return [...prev, ...uniqueNodes];
+            });
+
+            cursorRef.current = pageInfo?.endCursor || undefined;
+            setHasMore(pageInfo?.hasNextPage ?? false);
+
+        } catch (err) {
+            console.error("Novenarii Fetch Error:", err);
             setHasMore(false);
-            return;
+        } finally {
+            setIsLoading(false);
         }
+    }, [isLoading, hasMore, collectionHandle]);
 
-        // Senior Move: Ensure uniqueness to prevent key errors
-        setProducts((prev) => {
-            const existingIds = new Set(prev.map(p => p.id));
-            const uniqueNodes = edges
-                .map((edge: any) => edge.node)
-                .filter((node: any) => !existingIds.has(node.id));
-            
-            return [...prev, ...uniqueNodes];
-        });
+        // 1. Reset and Initial Load Logic
+    useEffect(() => {
+        // When the collection changes, we clear everything
+        setProducts([]);
+        cursorRef.current = undefined;
+        setHasMore(true);
+        
+        // We don't call loadProducts here because the 
+        // Intersection Observer will trigger it immediately 
+        // as soon as the 'observerTarget' div enters the viewport.
+    }, [collectionHandle]); 
 
-        cursorRef.current = pageInfo.endCursor;
-        setHasMore(pageInfo.hasNextPage);
-    } catch (err) {
-        console.error("Novenarii Fetch Error:", err);
-        setHasMore(false);
-    } finally {
-        setIsLoading(false);
-    }
-}, [isLoading, hasMore]);
-
-    // 1. Initial Load
-   useEffect(() => {
-    // Only fetch if we have no products yet to prevent double-firing on mount
-    if (products.length === 0) {
-        loadProducts();
-    }
-}, [loadProducts, products.length]);
-
-    // 2. Intersection Observer Logic
+    // 2. Intersection Observer Logic (The "Engine")
     useEffect(() => {
         const observer = new IntersectionObserver(
             (entries) => {
-                // Only trigger if intersecting AND not already loading
+                // Check all conditions to prevent accidental double-calls
                 if (entries[0].isIntersecting && hasMore && !isLoading) {
                     loadProducts();
                 }
@@ -85,44 +109,38 @@ export default function ProductsGrid() {
                 observer.unobserve(currentTarget);
             }
         };
-    }, [loadProducts, hasMore, isLoading]);
+    }, [loadProducts, hasMore, isLoading]); // Fixed size: 3 items
 
     return (
-        <div className="w-full">
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 p-8">
-                {products.map((product) => (
-                    <Link 
-                        key={product.id} 
-                        href={`/product/${product.handle}`}
-                        className="group flex flex-col cursor-pointer"
-                    >
-                        <div className="aspect-[3/4] overflow-hidden bg-gray-50 mb-4">
-                            {product.featuredImage && (
-                                <img
-                                    src={product.featuredImage.url}
-                                    alt={product.featuredImage.altText || product.title}
-                                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-                                />
-                            )}
-                        </div>
-                        <h3 className="text-[11px] uppercase tracking-[0.2em] font-medium">
-                            {product.title}
-                        </h3>
-                        <p className="text-gray-500 text-xs mt-1 pb-2">
-                            ${parseFloat(product.priceRange.minVariantPrice.amount).toFixed(0)}
-                        </p>
-                    </Link>
-                ))}
-            </div>
+    <div className="w-full">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 p-8">
+            {/* Show actual products */}
+            {products.map((product) => (
+                <Link key={product.id} href={`/product/${product.handle}`} className="group flex flex-col cursor-pointer">
+                    <div className="aspect-[3/4] overflow-hidden bg-gray-50 mb-4">
+                        {product.featuredImage && (
+                            <img
+                                src={product.featuredImage.url}
+                                alt={product.featuredImage.altText || product.title}
+                                className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                            />
+                        )}
+                    </div>
+                    <h3 className="text-[11px] uppercase tracking-[0.2em] font-medium">{product.title}</h3>
+                    <p className="text-gray-500 text-xs mt-1 pb-2">
+                        ${parseFloat(product.priceRange.minVariantPrice.amount).toFixed(0)}
+                    </p>
+                </Link>
+            ))}
 
-            {/* Intersection Anchor */}
-            <div ref={observerTarget} className="h-24 flex items-center justify-center">
-                {isLoading && (
-                    <span className="text-[10px] uppercase tracking-[0.4em] text-gray-400 animate-pulse">
-                        Loading...
-                    </span>
-                )}
-            </div>
+            {/* Senior Move: Show skeletons during initial load or while fetching more */}
+            {isLoading && Array.from({ length: 4 }).map((_, i) => (
+                <ProductSkeleton key={i} />
+            ))}
         </div>
-    );
+
+        {/* Intersection Anchor */}
+        <div ref={observerTarget} className="h-10" />
+    </div>
+);
 }
