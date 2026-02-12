@@ -1,3 +1,5 @@
+"use server"
+
 import { shopifyFetch } from "./client"
 import { GET_PRODUCTS } from "../../graphql/queries";
 
