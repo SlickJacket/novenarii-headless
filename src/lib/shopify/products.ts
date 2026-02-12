@@ -37,3 +37,43 @@ export async function getProducts(cursor: string | null = null): Promise<Shopify
     return { data: { products: { edges: [], pageInfo: { hasNextPage: false, endCursor: "" } } } };
   }
 }
+
+export async function getProductByHandle(handle: string) {
+  const query = `
+    query getProductByHandle($handle: String!) {
+      product(handle: $handle) {
+        id
+        title
+        descriptionHtml
+        images(first: 5) {
+          nodes {
+            url
+            altText
+            width
+            height
+          }
+        }
+        priceRange {
+          minVariantPrice {
+            amount
+            currencyCode
+          }
+        }
+        variants(first: 10) {
+          nodes {
+            id
+            title
+            availableForSale
+          }
+        }
+      }
+    }
+  `;
+
+  const response = await shopifyFetch({
+    query,
+    variables: { handle },
+  });
+
+  return response.data?.product;
+}
