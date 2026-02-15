@@ -1,7 +1,7 @@
 "use server"
 
 import { shopifyFetch } from "./client"
-import { GET_PRODUCTS } from "../../graphql/queries";
+import { GET_FILTERED_PRODUCTS } from "../../graphql/queries";
 
 // 1. Define a strict return type so your components don't have to guess
 interface ShopifyResponse {
@@ -20,7 +20,7 @@ interface ShopifyResponse {
 export async function getProducts(cursor: string | null = null): Promise<ShopifyResponse> {
   try {
     const response = await shopifyFetch({
-      query: GET_PRODUCTS,
+      query: GET_FILTERED_PRODUCTS,
       variables: { cursor }
     }) as ShopifyResponse;
 
