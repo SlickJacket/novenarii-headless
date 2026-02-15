@@ -6,7 +6,7 @@ export const GET_MENU_DATA = `
         node
       }
     }
-    # We fetch a sample of tags to find our gender markers
+    # Fetching tags for the Navbar logic to find 'male'/'female' markers
     products(first: 250) {
       edges {
         node {
@@ -31,13 +31,17 @@ export const GET_FILTERED_PRODUCTS = `
           title
           handle
           productType
+          tags
           featuredImage {
             url
             altText
+            width
+            height
           }
           priceRange {
             minVariantPrice {
               amount
+              currencyCode
             }
           }
         }

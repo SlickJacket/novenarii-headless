@@ -59,7 +59,7 @@ export default function NavbarClient({ data }: { data: NavData }) {
                                     {data.clothingTypes.map((type) => (
                                         <Link
                                             key={type}
-                                            href={`/products/${gender}/${type.toLowerCase()}`}
+                                            href={`/shop/${gender}/${type.toLowerCase()}`}
                                             className={`text-[10px] uppercase tracking-[0.15em] transition-colors font-medium ${isActive(`/shop/${gender}/${type.toLowerCase()}`) ? 'text-black' : 'text-neutral-500 hover:text-black'}`}
                                             onClick={() => setActiveDropdown(null)}
                                         >
