@@ -77,3 +77,34 @@ export async function getProductByHandle(handle: string) {
 
   return response.data?.product;
 }
+
+export async function getFilteredProducts(
+    type?: string,
+    gender?: string,
+    cursor?: string
+) {
+    let queryParts = [];
+
+    // 1. Gender Filter (via Tags)
+    if (gender && gender.toLowerCase() !== 'unisex') {
+        queryParts.push(`tag:${gender.toLowerCase()}`);
+    }
+
+    // 2. Category Filter (via Product Type)
+    // We only add this if it's not "all"
+    if (type && type.toLowerCase() !== 'all') {
+        queryParts.push(`product_type:'${type}'`);
+    }
+
+    const queryString = queryParts.join(' AND ');
+
+    const response = await shopifyFetch({
+        query: GET_FILTERED_PRODUCTS,
+        variables: {
+            query: queryString || "", // If empty, returns all active products
+            cursor: cursor || null
+        }
+    });
+
+    return response.data?.products;
+}
